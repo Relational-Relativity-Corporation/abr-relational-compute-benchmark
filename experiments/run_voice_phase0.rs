@@ -180,15 +180,15 @@ fn main() {
 
         println!("  Max |delta| at divergent edges: {:.6}  (median all: {:.6})",
             max_div_delta, median_delta);
-        println!("  Mean |sigma| divergent:    {:.6}", mean_div_sigma);
-        println!("  Mean |sigma| correspondent:{:.6}", mean_corr_sigma);
+        println!("  Mean |R| divergent:    {:.6}", mean_div_sigma);
+        println!("  Mean |R| correspondent:{:.6}", mean_corr_sigma);
         println!("  Ratio: {:.4}× (divergent edges are quieter)",
             mean_div_sigma / mean_corr_sigma);
         println!();
-        println!("  Interpretation: divergent edges are near-zero crossings where");
-        println!("  Σ accumulation from active neighbors overrides the local directed");
-        println!("  difference. This is declared operator behavior, not error.");
-        println!("  These edges carry the lowest local contrast in the window.");
+        println!("  Divergent edges concentrated in low-amplitude window regions.");
+        println!("  Partition by observed amplitude is OC-V-1 — declared next analysis.");
+
+
         let _ = w; // suppress unused warning
     }
 

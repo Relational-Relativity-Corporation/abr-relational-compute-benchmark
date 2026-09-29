@@ -1,18 +1,17 @@
 # abr-relational-compute-benchmark
 
-**Metatron Dynamics, Inc. — Kernel V8**  
+**Metatron Dynamics, Inc. — Kernel V8**
 Bounded over D. No claim beyond D.
 
 ---
 
 ## The argument
 
-Conventional mathematics cannot operate on a raw observable signal directly.
-It must first transform the signal into a representation its methods can act on.
-That transformation is not optional — it is structurally required.
+Conventional mathematics requires a transformation step before it can
+operate on a raw observable signal. That transformation has a cost.
 
-Relational mathematics declares the observable structure through M and applies
-the kernel operators directly. No transformation step. No representation layer.
+Relational mathematics declares the observable structure through M and
+applies the kernel operators directly. No transformation step.
 
 This repository measures the cost of that difference on a real observable:
 a 0.1-second segment of a human voice recording at 44,100 Hz.
@@ -27,23 +26,24 @@ Compute is measured after correspondence is established for each path.
 
 ```
 X  →  Relational path  (declare M → apply Kernel V8 A→B→R)  →  X'_R
-X  →  Conventional path  (STFT round-trip)                 →  X'_S
+X  →  Conventional path  (STFT round-trip)                   →  X'_S
 
 X'_R  ↔  X    (sign preservation on declared edges)
 X'_S  ↔  X    (sign preservation on declared edges)
 ```
 
-**The conventional path is STFT** — Short-Time Fourier Transform forward
-and inverse. STFT is not a choice here. It is the minimum transformation
-a conventional signal processing system requires to make a raw waveform
-legible to its mathematics. Without it, conventional frequency-domain
-analysis cannot proceed. This is the representation tax.
-
 **The relational path** declares the recording device's sample values as
-numerical projections through M, declares the temporal ordering as directed
-relations (earlier sample → later sample), and applies the frozen Kernel V8
-full spatial operators (A → B → R) directly. No frequency conversion. No windowing.
-No filterbank. No transformation of any kind.
+numerical projections through M, declares the temporal ordering as
+directed relations (i → i+1, from observed acquisition order), and
+applies the Kernel V8 full spatial operators A→B→R directly.
+Single component, no component pairs. Persistence not evaluated —
+a single observation window does not provide the declared pair of
+sequential observations Phase 2 requires.
+
+**The conventional path** is STFT round-trip (forward + inverse STFT,
+nperseg=512, noverlap=256, Hann window). STFT is the declared
+conventional comparator for this experiment. Reconstruction
+RMS error: 9.21e-16 (machine precision).
 
 ---
 
@@ -51,45 +51,46 @@ No filterbank. No transformation of any kind.
 
 ```
                               Relational (A→B→R)   Conventional (STFT)
----------------------------------------------------------------------
-Correspondence with X         95.6% (4214/4409)   100% (4409/4409)
-Reconstruction RMS error      (edge domain)        9.16e-16 (exact)
+----------------------------------------------------------------------
+Correspondence with X         95.6% (4214/4409)    100% (4409/4409)
+Reconstruction RMS error      (edge domain)         9.21e-16
 
-Arithmetic operations              39,684              212,595
-Comparison operations               8,818                    0
-Total operations                   48,502              212,595
+Arithmetic operations              39,684               212,595
+Comparison operations               8,818                     0
+Total operations                   48,502               212,595
 
 Compute ratio                       4.38× fewer operations
 ```
 
-**The relational path uses 4.38× fewer operations** and achieves 99.4%
-correspondence with the declared observable structure — without any
-transformation of the signal.
+**The relational path uses 4.38× fewer operations** on the same declared
+observable, with 95.6% edge-sign correspondence.
 
-The 4.4% non-correspondence (195 of 4,409 edges) is not error. Those 195
-edges are near-zero crossings where the Σ accumulation term correctly
-reads the surrounding relational activity. Their mean output magnitude
-is 6.7% of the correspondent edge mean. The operator is doing declared
-work at the locations where local contrast alone is insufficient.
+**On the 195 divergent edges (4.4%):** their mean R output magnitude is
+0.002040, compared to 0.012726 for the 195 correspondent edges — a ratio
+of 0.16×. The divergent population is concentrated in the low-amplitude
+portions of the window. The aggregate 95.6% figure mixes at least two
+observational regimes: active voice signal and minimal-amplitude
+interstitial signal. Partitioning the result by observed signal amplitude
+is the declared next analysis (OC-V-1). No threshold is chosen to improve
+the score; the partition will be derived from the signal's observed
+amplitude distribution.
 
 ---
 
 ## Why the gap grows with complexity
 
-The STFT is the minimum conventional transformation for a 1D signal.
-For higher-dimensional or multi-domain analysis:
+The conventional transformation burden scales with the complexity of the
+representation problem. The relational burden scales with the declared
+relational structure of the observable.
 
-- Each additional signal dimension requires an additional transformation layer
+For higher-dimensional or multi-domain analysis:
+- Each additional signal dimension may require additional transformation
 - Cross-domain coupling requires further representation steps
 - The relational path adds a declared relation and declared provenance
 
-The conventional computation burden scales with the complexity of the
-representation problem. The relational burden scales with the declared
-relational structure of the observable — which is what was actually
-observed, not a mathematical convenience imposed on top of it.
-
-This is not an optimization. It is a structural difference in where
-the mathematics begins: at the representation, or at the observation.
+This experiment measures one bounded comparison. The structural reason
+the gap exists — operating at the representation versus at the
+observation — is stated in the declaration.
 
 ---
 
@@ -106,22 +107,21 @@ Place `Voice_44100_16bit.wav` in the repo root before running.
 
 ## Verification appendix — synthetic scaling
 
-`cargo run --bin run_phase0` runs both paths over synthetic gradient
-fields at N = 100, 1,000, 10,000, 100,000. These confirm O(N) scaling
-and full correspondence for both paths at all tiers. They are
-implementation verification, not a compute advantage claim — a synthetic
-gradient field carries no representational burden, so there is no tax
-to avoid.
+`cargo run --bin run_phase0` confirms O(N) scaling and full
+correspondence for both paths over synthetic gradient fields at
+N = 100, 1,000, 10,000, 100,000. This is implementation verification.
+A synthetic gradient field carries no representational burden, so
+there is no transformation tax to measure.
 
 ---
 
 ## Declaration
 
-Full experimental declaration: `docs/DECLARATION_VOICE.md`  
-M declaration for the voice input: `docs/DECLARATION_VOICE.md`  
-Origin declaration for the experiment structure: `docs/DECLARATION.md`
+`docs/DECLARATION_VOICE.md` — M declaration, window, kernel selection,
+conventional comparator, correspondence criterion, open conditions.
+
+`docs/DECLARATION.md` — experiment structure origin declaration.
 
 ---
 
-*The operators hold no agency. Responsibility stays with Origin.*  
 Metatron Dynamics, Inc. Kernel V8. Bounded over D. No claim beyond D.
