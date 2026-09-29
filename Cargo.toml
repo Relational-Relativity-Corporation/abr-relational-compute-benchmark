@@ -1,0 +1,17 @@
+[package]
+name = "abr-relational-compute-benchmark"
+version = "0.1.0"
+edition = "2021"
+description = "Compute comparison: relational path (Kernel V8) vs conventional reduction, same input, same output requirement."
+
+[[bin]]
+name = "run_phase0"
+path = "experiments/run_phase0.rs"
+
+[[bin]]
+name = "run_voice_phase0"
+path = "experiments/run_voice_phase0.rs"
+
+[dependencies]
+
+[dev-dependencies]
