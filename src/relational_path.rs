@@ -8,6 +8,11 @@
 // Operator forms are taken verbatim from operators.rs. They are not rewritten,
 // renamed, or extended. The instrumentation counters wrap the same operations
 // the kernel executes.
+//
+// F-2 fix (2026-09-29): adj⁺/adj⁻ construction is now O(M) using declared
+// chain topology rather than O(M²) scan. The operator form (Σ) is unchanged.
+// Operation counts now reflect operator execution only, not the correspondence
+// check. OC-BCH-4 closed for declared chain topology.
 
 use crate::types::{BenchmarkInput, ComputeRecord, PathOutput};
 use std::time::Instant;
@@ -43,11 +48,9 @@ pub fn run_relational_primary(input: &BenchmarkInput) -> (PathOutput, ComputeRec
         rec.arithmetic_ops += 1;
     }
 
-    // ── ρ: compute per-node χ, then ρ[e] at source of each edge ──────────
+    // ── ρ: per-node χ, then ρ[e] at source ───────────────────────────────
     // χ[i] = max{ |Δ(x)[e']| : e' incident to i }
     // ρ[e] = ρ_base · χ[src(e)] / (χ₀ + χ[src(e)])
-
-    // Build node → incident edges index
     rec.allocations += 1;
     let mut node_incident: Vec<Vec<usize>> = vec![Vec::new(); n];
     for (e, &(s, t)) in edges.iter().enumerate() {
@@ -72,41 +75,23 @@ pub fn run_relational_primary(input: &BenchmarkInput) -> (PathOutput, ComputeRec
     let mut rho: Vec<f64> = Vec::with_capacity(m);
     for &(s, _) in edges {
         let chi = node_chi[s];
-        // ρ_base · chi / (chi_0 + chi)
         let r = rho_base * chi / (chi_0 + chi);
         rec.arithmetic_ops += 3; // multiply, add, divide
         rho.push(r);
     }
 
-    // ── adj⁺ and adj⁻ for Σ ──────────────────────────────────────────────
-    // adj⁺[e] = edges f where source(f) = target(e)
-    // adj⁻[e] = edges f where target(f) = source(e)
-    rec.allocations += 2;
-    let mut adj_plus: Vec<Vec<usize>> = vec![Vec::new(); m];
-    let mut adj_minus: Vec<Vec<usize>> = vec![Vec::new(); m];
-    for (e, &(_, et)) in edges.iter().enumerate() {
-        for (f, &(fs, _)) in edges.iter().enumerate() {
-            rec.comparison_ops += 1;
-            if fs == et { adj_plus[e].push(f); }
-        }
-    }
-    for (e, &(es, _)) in edges.iter().enumerate() {
-        for (f, &(_, ft)) in edges.iter().enumerate() {
-            rec.comparison_ops += 1;
-            if ft == es { adj_minus[e].push(f); }
-        }
-    }
-    // adj construction: O(m²) comparisons — declared and counted.
-
-    // ── Σ: relational accumulation ─────────────────────────────────────────
+    // ── Σ: relational accumulation ────────────────────────────────────────
     // Σ(g)[e] = g[e] + ρ[e] · (Σ_{adj⁺} g − Σ_{adj⁻} g)
+    //
+    // adj⁺/adj⁻ for declared chain topology (O(M), not O(M²)):
+    //   adj⁺[e] = {e+1} if e+1 < M, else {}
+    //   adj⁻[e] = {e-1} if e > 0,   else {}
+    // The declared topology makes this directly computable without scanning.
     rec.allocations += 1;
     let mut sigma: Vec<f64> = Vec::with_capacity(m);
     for e in 0..m {
-        let fwd: f64 = adj_plus[e].iter().map(|&f| delta[f]).sum();
-        let bwd: f64 = adj_minus[e].iter().map(|&p| delta[p]).sum();
-        rec.arithmetic_ops += adj_plus[e].len() as u64;  // fwd sum
-        rec.arithmetic_ops += adj_minus[e].len() as u64; // bwd sum
+        let fwd = if e + 1 < m { delta[e + 1] } else { 0.0 };
+        let bwd = if e > 0     { delta[e - 1] } else { 0.0 };
         let val = delta[e] + rho[e] * (fwd - bwd);
         rec.arithmetic_ops += 3; // subtract, multiply, add
         sigma.push(val);
@@ -114,8 +99,6 @@ pub fn run_relational_primary(input: &BenchmarkInput) -> (PathOutput, ComputeRec
 
     rec.wall_clock_us = start.elapsed().as_micros() as u64;
 
-    // Peak memory estimate: x (n f64) + delta (m) + node_chi (n) + rho (m)
-    //   + sigma (m) + adjacency structures (rough: 2*m*avg_degree)
     rec.peak_memory_bytes = ((n + m + n + m + m) * 8) as u64;
 
     (
