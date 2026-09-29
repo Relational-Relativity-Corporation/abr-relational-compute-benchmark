@@ -26,7 +26,7 @@ Both must return output that corresponds with X.
 Compute is measured after correspondence is established for each path.
 
 ```
-X  →  Relational path  (declare M → apply Kernel V8 Δ→Σ)  →  X'_R
+X  →  Relational path  (declare M → apply Kernel V8 A→B→R)  →  X'_R
 X  →  Conventional path  (STFT round-trip)                 →  X'_S
 
 X'_R  ↔  X    (sign preservation on declared edges)
@@ -42,7 +42,7 @@ analysis cannot proceed. This is the representation tax.
 **The relational path** declares the recording device's sample values as
 numerical projections through M, declares the temporal ordering as directed
 relations (earlier sample → later sample), and applies the frozen Kernel V8
-Primary operators (Δ → Σ) directly. No frequency conversion. No windowing.
+full spatial operators (A → B → R) directly. No frequency conversion. No windowing.
 No filterbank. No transformation of any kind.
 
 ---
@@ -50,14 +50,14 @@ No filterbank. No transformation of any kind.
 ## Result — Voice_44100_16bit.wav, 4,410 samples, 0.1 seconds
 
 ```
-                              Relational (Δ→Σ)    Conventional (STFT)
+                              Relational (A→B→R)   Conventional (STFT)
 ---------------------------------------------------------------------
-Correspondence with X         99.4% (4381/4409)   100% (4409/4409)
+Correspondence with X         95.6% (4214/4409)   100% (4409/4409)
 Reconstruction RMS error      (edge domain)        9.16e-16 (exact)
 
-Arithmetic operations              39,681              212,595
+Arithmetic operations              39,684              212,595
 Comparison operations               8,818                    0
-Total operations                   48,499              212,595
+Total operations                   48,502              212,595
 
 Compute ratio                       4.38× fewer operations
 ```
@@ -66,7 +66,7 @@ Compute ratio                       4.38× fewer operations
 correspondence with the declared observable structure — without any
 transformation of the signal.
 
-The 0.6% non-correspondence (28 of 4,409 edges) is not error. Those 28
+The 4.4% non-correspondence (195 of 4,409 edges) is not error. Those 195
 edges are near-zero crossings where the Σ accumulation term correctly
 reads the surrounding relational activity. Their mean output magnitude
 is 6.7% of the correspondent edge mean. The operator is doing declared

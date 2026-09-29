@@ -14,8 +14,8 @@ use types::{
     BenchmarkInput, CorrespondenceState, ExperimentResult, SinglePathResult,
 };
 
-/// Run both paths (Primary Δ→Σ and conventional mean-sub+norm) over the
-/// declared input. Used for Phase 0 synthetic experiments.
+/// Run both paths over a declared synthetic input.
+/// Relational: full ABR (A→B→R). Conventional: mean-sub + normalization.
 pub fn run_experiment(input: &BenchmarkInput) -> ExperimentResult {
     if let Err(e) = input.validate() {
         let not_evaluable = SinglePathResult {
@@ -31,7 +31,7 @@ pub fn run_experiment(input: &BenchmarkInput) -> ExperimentResult {
         };
     }
 
-    let (rel_output, rel_compute) = relational_path::run_relational_primary(input);
+    let (rel_output, rel_compute) = relational_path::run_relational_abr(input);
     let rel_correspondence = correspondence::check_correspondence(input, &rel_output);
 
     let (conv_output, conv_compute) = conventional_path::run_conventional(input);
@@ -40,7 +40,7 @@ pub fn run_experiment(input: &BenchmarkInput) -> ExperimentResult {
     ExperimentResult {
         input_n: input.n_nodes(),
         relational: SinglePathResult {
-            path_label: "relational-primary (Δ→Σ)".into(),
+            path_label: "relational-ABR (A→B→R)".into(),
             output: Some(rel_output),
             correspondence: rel_correspondence,
             compute: rel_compute,

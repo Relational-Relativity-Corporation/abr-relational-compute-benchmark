@@ -20,7 +20,7 @@
 use abr_relational_compute_benchmark::{
     adapter_voice::{make_voice_input, WINDOW_N, WINDOW_START},
     conventional_stft::run_stft_roundtrip,
-    relational_path::run_relational_primary,
+    relational_path::run_relational_abr,
     types::BenchmarkInput,
     wav_loader::read_wav_window,
 };
@@ -108,7 +108,7 @@ fn main() {
     }
 
     // ── Relational path: Δ → Σ ───────────────────────────────────────
-    let (rel_output, rel_rec) = run_relational_primary(&input);
+    let (rel_output, rel_rec) = run_relational_abr(&input);
     let (rel_corr, m, divergent_edges) = check_relational(&input, &rel_output.values);
 
     // ── Conventional path: STFT round-trip ───────────────────────────
@@ -118,7 +118,7 @@ fn main() {
 
     // ── Report ────────────────────────────────────────────────────────
     let w = 24usize;
-    println!("{:<35}  {:>20}  {:>20}", "", "Relational (Δ→Σ)", "Conventional (STFT)");
+    println!("{:<35}  {:>20}  {:>20}", "", "Relational (A→B→R)", "Conventional (STFT)");
     println!("{}", "-".repeat(80));
     println!("{:<35}  {:>20}  {:>20}",
         "Correspondence",

@@ -13,7 +13,7 @@ use abr_relational_compute_benchmark::{
     adapter_synthetic::make_synthetic_input,
     conventional_path::run_conventional,
     correspondence::check_correspondence,
-    relational_path::run_relational_primary,
+    relational_path::run_relational_abr,
     run_experiment,
     types::CorrespondenceState,
 };
@@ -77,7 +77,7 @@ fn relational_delta_directed_difference() {
     // x = [3, 2, 1, 0]. Edge (0,1): Δ = 3−2 = 1.
     // After Σ accumulation, output[0] ≥ Δ[0] because adj⁺(0) adds forward
     // contributions. Sign must be preserved.
-    let (out, _) = run_relational_primary(&input);
+    let (out, _) = run_relational_abr(&input);
     // All outputs should be positive (gradient descends left to right,
     // all directed differences are positive).
     assert!(out.values.iter().all(|&v| v > 0.0),
@@ -90,7 +90,7 @@ fn relational_uniform_field_zero_output() {
     let n = 10;
     let mut input = make_synthetic_input(n);
     input.x = vec![5.0; n]; // uniform
-    let (out, _) = run_relational_primary(&input);
+    let (out, _) = run_relational_abr(&input);
     assert!(out.values.iter().all(|&v| v.abs() < 1e-12),
         "uniform field must produce zero output from Δ → Σ");
 }
@@ -99,8 +99,8 @@ fn relational_uniform_field_zero_output() {
 #[test]
 fn relational_determinism() {
     let input = make_synthetic_input(100);
-    let (out1, _) = run_relational_primary(&input);
-    let (out2, _) = run_relational_primary(&input);
+    let (out1, _) = run_relational_abr(&input);
+    let (out2, _) = run_relational_abr(&input);
     assert_eq!(out1.values, out2.values,
         "two forward applications from identical declared inputs must be identical");
 }
@@ -144,7 +144,7 @@ fn conventional_determinism() {
 #[test]
 fn relational_corresponds_t1() {
     let input = make_synthetic_input(100);
-    let (out, _) = run_relational_primary(&input);
+    let (out, _) = run_relational_abr(&input);
     let corr = check_correspondence(&input, &out);
     assert_eq!(corr, CorrespondenceState::Correspondent,
         "relational path must correspond for N=100 gradient field");
@@ -166,7 +166,7 @@ fn both_paths_correspond_all_tiers() {
     for &n in &[100usize, 1_000, 10_000, 100_000] {
         let input = make_synthetic_input(n);
 
-        let (rel_out, _) = run_relational_primary(&input);
+        let (rel_out, _) = run_relational_abr(&input);
         let rel_corr = check_correspondence(&input, &rel_out);
         assert_eq!(rel_corr, CorrespondenceState::Correspondent,
             "relational path must correspond at N={}", n);
