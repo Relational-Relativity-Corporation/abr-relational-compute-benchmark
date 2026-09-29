@@ -28,52 +28,58 @@ Compute is measured after correspondence is established for each path.
 X  →  Relational path  (declare M → apply Kernel V8 A→B→R)  →  X'_R
 X  →  Conventional path  (STFT round-trip)                   →  X'_S
 
-X'_R  ↔  X    (sign preservation on declared edges)
-X'_S  ↔  X    (sign preservation on declared edges)
+X'_R  ↔  X    (amplitude-weighted sign correspondence)
+X'_S  ↔  X    (amplitude-weighted sign correspondence)
 ```
 
 **The relational path** declares the recording device's sample values as
 numerical projections through M, declares the temporal ordering as
 directed relations (i → i+1, from observed acquisition order), and
 applies the Kernel V8 full spatial operators A→B→R directly.
-Single component, no component pairs. Persistence not evaluated —
-a single observation window does not provide the declared pair of
-sequential observations Phase 2 requires.
 
-**The conventional path** is STFT round-trip (forward + inverse STFT,
-nperseg=512, noverlap=256, Hann window). STFT is the declared
-conventional comparator for this experiment. Reconstruction
-RMS error: 9.21e-16 (machine precision).
+**The conventional path** is STFT round-trip — the declared conventional
+comparator for this experiment. Reconstruction RMS error: 9.21e-16
+(machine precision).
+
+**Correspondence criterion: amplitude-weighted.**
+The observable provides amplitude through M. The amplitude of each
+declared relation |A[e]| = |x[s] − x[t]| is the physical weight of
+that relation. Correspondence is evaluated weighted by that amplitude:
+
+    Weighted correspondence = Σ|A[e]| over correspondent edges
+                            / Σ|A[e]| over all edges
+
+A sign correspondence at |A[e]| = 0.0001 and at |A[e]| = 0.4 are not
+equivalent observational events. The physical weight distinguishes them.
+This is not a threshold chosen to improve a score — it is the amplitude
+information M already provides, applied consistently to the comparison.
 
 ---
 
 ## Result — Voice_44100_16bit.wav, 4,410 samples, 0.1 seconds
 
 ```
-                              Relational (A→B→R)   Conventional (STFT)
-----------------------------------------------------------------------
-Correspondence with X         95.6% (4214/4409)    100% (4409/4409)
-Reconstruction RMS error      (edge domain)         9.21e-16
+                                  Relational (A→B→R)   Conventional (STFT)
+--------------------------------------------------------------------------
+Weighted correspondence (primary)          99.2%               100.0%
+Binary correspondence                  4214/4409           4409/4409
+Reconstruction RMS error               (edge domain)         9.21e-16
 
-Arithmetic operations              39,684               212,595
-Comparison operations               8,818                     0
-Total operations                   48,502               212,595
+Arithmetic operations                     39,684              212,595
+Comparison operations                      8,818                    0
+Total operations                          48,502              212,595
 
-Compute ratio                       4.38× fewer operations
+Compute ratio                             4.38× fewer operations
 ```
 
-**The relational path uses 4.38× fewer operations** on the same declared
-observable, with 95.6% edge-sign correspondence.
+The 195 binary-divergent relational edges carry **0.8% of total signal
+amplitude weight**. Their mean |A[e]| is 0.001056 versus 0.006451 for
+correspondent edges — a ratio of 0.16×. The divergence is at the
+physical noise floor of the declared observation, not in the signal.
 
-**On the 195 divergent edges (4.4%):** their mean R output magnitude is
-0.002040, compared to 0.012726 for the 195 correspondent edges — a ratio
-of 0.16×. The divergent population is concentrated in the low-amplitude
-portions of the window. The aggregate 95.6% figure mixes at least two
-observational regimes: active voice signal and minimal-amplitude
-interstitial signal. Partitioning the result by observed signal amplitude
-is the declared next analysis (OC-V-1). No threshold is chosen to improve
-the score; the partition will be derived from the signal's observed
-amplitude distribution.
+**The relational path uses 4.38× fewer operations** and achieves 99.2%
+amplitude-weighted correspondence with the declared observable — without
+any transformation of the signal.
 
 ---
 

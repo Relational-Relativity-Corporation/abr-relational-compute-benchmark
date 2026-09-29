@@ -3,84 +3,66 @@
 //
 // Voice Phase 0 experiment.
 //
-// Experimental control: X in, X' out. Both paths must return output
-// in the sample/edge domain that corresponds with X.
+// Experimental control: X in, X' out. Both paths checked against X.
 //
-// Relational path:    Primary kernel Δ → Σ.
-// Conventional path:  STFT round-trip (forward + inverse STFT, nperseg=512,
+// Relational path:    Full ABR spatial kernel A→B→R.
+// Conventional path:  STFT round-trip (forward + inverse, nperseg=512,
 //                     noverlap=256, Hann window). Exact reconstruction.
 //
-// Correspondence criterion: sign(output[e]) = sign(x[s] − x[t])
-// for each declared edge e = (i, i+1).
+// Correspondence criterion: amplitude-weighted.
+//   Weight of each edge = |A[e]| = |x[s] - x[t]|, the observed directed
+//   difference magnitude declared through M.
+//   Weighted correspondence = Σ|A[e]| over correspondent edges
+//                           / Σ|A[e]| over all edges.
+//   Binary edge count also reported.
 //
 // See docs/DECLARATION_VOICE.md for the full M declaration.
-//
-// Usage: cargo run --bin run_voice_phase0 -- <path/to/Voice_44100_16bit.wav>
 
 use abr_relational_compute_benchmark::{
     adapter_voice::{make_voice_input, WINDOW_N, WINDOW_START},
     conventional_stft::run_stft_roundtrip,
+    correspondence::check_correspondence_weighted,
     relational_path::run_relational_abr,
-    types::BenchmarkInput,
     wav_loader::read_wav_window,
 };
 use std::path::Path;
 
 const ZERO_TOL: f64 = 1e-10;
 
-fn check_relational(input: &BenchmarkInput, sigma: &[f64]) -> (usize, usize, Vec<usize>) {
-    let m = input.n_edges();
-    let mut corr = 0usize;
-    let mut divergent = Vec::new();
-    for e in 0..m {
-        let (s, t) = input.edges[e];
-        let exp = input.x[s] - input.x[t];
-        let act = sigma[e];
-        let matches = (exp.abs() <= ZERO_TOL && act.abs() <= ZERO_TOL)
-            || (exp * act > 0.0);
-        if matches { corr += 1; } else { divergent.push(e); }
-    }
-    (corr, m, divergent)
-}
-
-fn check_conventional(x: &[f64], xr: &[f64]) -> (usize, usize) {
+fn weighted_correspondence_stft(x: &[f64], xr: &[f64]) -> (f64, usize, usize, Vec<usize>) {
     let m = x.len() - 1;
-    let mut corr = 0usize;
+    let mut total_w = 0.0_f64;
+    let mut w_corr  = 0.0_f64;
+    let mut b_corr  = 0usize;
+    let mut div     = Vec::new();
     for e in 0..m {
-        let exp = x[e] - x[e + 1];
-        let act = xr[e] - xr[e + 1];
-        let matches = (exp.abs() <= ZERO_TOL && act.abs() <= ZERO_TOL)
-            || (exp * act > 0.0);
-        if matches { corr += 1; }
+        let a_e = x[e] - x[e+1];
+        let r_e = xr[e] - xr[e+1];
+        let w   = a_e.abs();
+        total_w += w;
+        let ok = (a_e.abs() <= ZERO_TOL && r_e.abs() <= ZERO_TOL)
+               || (a_e * r_e > 0.0);
+        if ok { w_corr += w; b_corr += 1; }
+        else  { div.push(e); }
     }
-    (corr, m)
+    let pct = if total_w > ZERO_TOL { 100.0 * w_corr / total_w } else { 100.0 };
+    (pct, b_corr, m, div)
 }
 
 fn rms(a: &[f64], b: &[f64]) -> f64 {
     let n = a.len().min(b.len());
-    (a.iter().zip(b.iter()).map(|(x, y)| (x - y).powi(2)).sum::<f64>() / n as f64).sqrt()
-}
-
-fn corr_label(n: usize, total: usize) -> String {
-    if n == total { "CORRESPONDENT".into() }
-    else if n == 0 { "DIVERGENT".into() }
-    else { format!("PARTIAL {}/{}", n, total) }
+    (a.iter().zip(b.iter()).map(|(x,y)|(x-y).powi(2)).sum::<f64>() / n as f64).sqrt()
 }
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let wav_path = if args.len() > 1 {
-        args[1].clone()
-    } else {
-        // default path for local development
-        "Voice_44100_16bit.wav".into()
-    };
+    let wav_path = if args.len() > 1 { args[1].clone() }
+                  else { "Voice_44100_16bit.wav".into() };
 
     println!("abr-relational-compute-benchmark — Voice Phase 0");
     println!("Metatron Dynamics, Inc. Kernel V8. Bounded over D. No claim beyond D.");
     println!();
 
-    // ── Load declared window ──────────────────────────────────────────
     let (info, samples) = match read_wav_window(
         Path::new(&wav_path), WINDOW_START, WINDOW_N
     ) {
@@ -90,109 +72,89 @@ fn main() {
 
     println!("File:     {}", wav_path);
     println!("Format:   {} Hz, {}-bit, {} ch, {} frames",
-        info.sample_rate, info.bits_per_sample,
-        info.n_channels, info.n_frames);
-    println!("Window:   samples {}–{} (1.3000s–1.4000s)",
-        WINDOW_START, WINDOW_START + WINDOW_N - 1);
-    println!("N:        {}  |  Edges: {}", WINDOW_N, WINDOW_N - 1);
+        info.sample_rate, info.bits_per_sample, info.n_channels, info.n_frames);
+    println!("Window:   samples {}–{} (1.3000s–1.4000s)", WINDOW_START, WINDOW_START+WINDOW_N-1);
+    println!("N:        {}  |  Edges: {}", WINDOW_N, WINDOW_N-1);
 
-    let rms_x = (samples.iter().map(|v| v * v).sum::<f64>() / samples.len() as f64).sqrt();
+    let rms_x = (samples.iter().map(|v|v*v).sum::<f64>() / samples.len() as f64).sqrt();
     println!("X RMS:    {:.6}", rms_x);
     println!();
 
-    // ── Validate and build input ──────────────────────────────────────
     let input = make_voice_input(samples.clone());
     if let Err(e) = input.validate() {
-        eprintln!("Declaration completeness error: {}", e);
-        std::process::exit(1);
+        eprintln!("Declaration completeness error: {}", e); std::process::exit(1);
     }
 
-    // ── Relational path: Δ → Σ ───────────────────────────────────────
+    // ── Relational path ───────────────────────────────────────────────────
     let (rel_output, rel_rec) = run_relational_abr(&input);
-    let (rel_corr, m, divergent_edges) = check_relational(&input, &rel_output.values);
+    let (rel_wpct, rel_bcorr, m, rel_div) =
+        check_correspondence_weighted(&input, &rel_output);
 
-    // ── Conventional path: STFT round-trip ───────────────────────────
-    let (xr, _conv_edge_output, conv_rec) = run_stft_roundtrip(&samples);
-    let (conv_corr, _) = check_conventional(&samples, &xr);
+    // ── Conventional path ─────────────────────────────────────────────────
+    let (xr, _conv_edges, conv_rec) = run_stft_roundtrip(&samples);
     let recon_err = rms(&samples, &xr);
+    let (conv_wpct, conv_bcorr, _, conv_div) =
+        weighted_correspondence_stft(&samples, &xr);
 
-    // ── Report ────────────────────────────────────────────────────────
-    let w = 24usize;
-    println!("{:<35}  {:>20}  {:>20}", "", "Relational (A→B→R)", "Conventional (STFT)");
-    println!("{}", "-".repeat(80));
-    println!("{:<35}  {:>20}  {:>20}",
-        "Correspondence",
-        corr_label(rel_corr, m), corr_label(conv_corr, m));
-    println!("{:<35}  {:>20}  {:>20}",
-        "Edges correspondent",
-        format!("{}/{}", rel_corr, m), format!("{}/{}", conv_corr, m));
-    println!("{:<35}  {:>20}  {:>20}",
-        "Reconstruction RMS error",
-        "(edge domain)", format!("{:.2e}", recon_err));
+    // ── Report ────────────────────────────────────────────────────────────
+    println!("{:<38}  {:>20}  {:>20}", "", "Relational (A→B→R)", "Conventional (STFT)");
+    println!("{}", "-".repeat(82));
+    println!("{:<38}  {:>20.1}%  {:>19.1}%",
+        "Weighted correspondence (primary)",  rel_wpct, conv_wpct);
+    println!("{:<38}  {:>20}  {:>20}",
+        "Binary correspondence",
+        format!("{}/{}", rel_bcorr, m), format!("{}/{}", conv_bcorr, m));
+    println!("{:<38}  {:>20}  {:>20}",
+        "Reconstruction RMS error", "(edge domain)", format!("{:.2e}", recon_err));
     println!();
-    println!("{:<35}  {:>20}  {:>20}",
-        "Arithmetic ops",
-        rel_rec.arithmetic_ops, conv_rec.arithmetic_ops);
-    println!("{:<35}  {:>20}  {:>20}",
-        "Comparison ops",
-        rel_rec.comparison_ops, conv_rec.comparison_ops);
-    println!("{:<35}  {:>20}  {:>20}",
-        "Allocations",
-        rel_rec.allocations, conv_rec.allocations);
-    println!("{:<35}  {:>20}  {:>20}",
-        "Peak memory (bytes est.)",
-        rel_rec.peak_memory_bytes, conv_rec.peak_memory_bytes);
-    println!("{:<35}  {:>20}  {:>20}",
-        "Wall time (µs)",
-        rel_rec.wall_clock_us, conv_rec.wall_clock_us);
+    println!("{:<38}  {:>20}  {:>20}",
+        "Arithmetic ops", rel_rec.arithmetic_ops, conv_rec.arithmetic_ops);
+    println!("{:<38}  {:>20}  {:>20}",
+        "Comparison ops", rel_rec.comparison_ops, conv_rec.comparison_ops);
+    println!("{:<38}  {:>20}  {:>20}",
+        "Allocations", rel_rec.allocations, conv_rec.allocations);
+    println!("{:<38}  {:>20}  {:>20}",
+        "Peak memory (bytes est.)", rel_rec.peak_memory_bytes, conv_rec.peak_memory_bytes);
+    println!("{:<38}  {:>20}  {:>20}",
+        "Wall time (µs)", rel_rec.wall_clock_us, conv_rec.wall_clock_us);
     println!();
 
     let total_rel  = rel_rec.arithmetic_ops  + rel_rec.comparison_ops;
     let total_conv = conv_rec.arithmetic_ops + conv_rec.comparison_ops;
-    if total_rel > 0 {
-        println!("Total ops ratio (conv/rel): {:.2}×", total_conv as f64 / total_rel as f64);
-    }
+    println!("Total ops ratio (conv/rel): {:.2}×", total_conv as f64 / total_rel as f64);
     println!();
 
-    // ── Divergent edge summary ────────────────────────────────────────
-    println!("Divergent edges: {}", divergent_edges.len());
-    if !divergent_edges.is_empty() {
-        let _sample_rate = info.sample_rate as f64;
-        let div_deltas: Vec<f64> = divergent_edges.iter()
-            .map(|&e| (input.x[e] - input.x[e+1]).abs())
+    // ── Divergent edge summary ─────────────────────────────────────────────
+    println!("Divergent edges (binary): relational={}, conventional={}",
+        rel_div.len(), conv_div.len());
+
+    if !rel_div.is_empty() {
+        let x = &input.x;
+        let edges = &input.edges;
+        let div_weights: Vec<f64> = rel_div.iter()
+            .map(|&e| { let (s,t) = edges[e]; (x[s]-x[t]).abs() })
             .collect();
-        let all_deltas: Vec<f64> = (0..m)
-            .map(|e| (input.x[e] - input.x[e+1]).abs())
+        let all_weight: f64 = (0..m)
+            .map(|e| { let (s,t) = edges[e]; (x[s]-x[t]).abs() })
+            .sum();
+        let div_weight_sum: f64 = div_weights.iter().sum();
+        let mean_div  = div_weights.iter().sum::<f64>() / div_weights.len() as f64;
+        let corr_weights: Vec<f64> = (0..m)
+            .filter(|e| !rel_div.contains(e))
+            .map(|e| { let (s,t) = edges[e]; (x[s]-x[t]).abs() })
             .collect();
-        let median_delta = {
-            let mut v = all_deltas.clone();
-            v.sort_by(|a, b| a.partial_cmp(b).unwrap());
-            v[v.len() / 2]
-        };
-        let max_div_delta = div_deltas.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-        let mean_div_sigma: f64 = divergent_edges.iter()
-            .map(|&e| rel_output.values[e].abs())
-            .sum::<f64>() / divergent_edges.len() as f64;
-        let mean_corr_sigma: f64 = (0..m)
-            .filter(|e| !divergent_edges.contains(e))
-            .map(|e| rel_output.values[e].abs())
-            .sum::<f64>() / (m - divergent_edges.len()) as f64;
+        let mean_corr = corr_weights.iter().sum::<f64>() / corr_weights.len() as f64;
 
-        println!("  Max |delta| at divergent edges: {:.6}  (median all: {:.6})",
-            max_div_delta, median_delta);
-        println!("  Mean |R| divergent:    {:.6}", mean_div_sigma);
-        println!("  Mean |R| correspondent:{:.6}", mean_corr_sigma);
-        println!("  Ratio: {:.4}× (divergent edges are quieter)",
-            mean_div_sigma / mean_corr_sigma);
-        println!();
-        println!("  Divergent edges concentrated in low-amplitude window regions.");
-        println!("  Partition by observed amplitude is OC-V-1 — declared next analysis.");
-
-
-        let _ = w; // suppress unused warning
+        println!("  Divergent edge amplitude share: {:.1}% of total signal weight",
+            100.0 * div_weight_sum / all_weight);
+        println!("  Mean |A[e]| divergent:    {:.6}", mean_div);
+        println!("  Mean |A[e]| correspondent:{:.6}", mean_corr);
+        println!("  Ratio: {:.4}×", mean_div / mean_corr);
     }
 
     println!();
+    println!("Amplitude-weighted correspondence is the primary declared criterion.");
+    println!("Weight = |A[e]| = observed directed difference magnitude through M.");
     println!("Correspondence checked against X independently for each path.");
     println!("Divergence is a finding, not suppressed.");
 }

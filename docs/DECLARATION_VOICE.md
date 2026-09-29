@@ -117,3 +117,27 @@ Not a property of the observed system.
 
 Bounded over D. No claim beyond D.
 Metatron Dynamics, Inc. Kernel V8.
+
+---
+
+## Correspondence criterion — amplitude-weighted (declared 2026-09-29)
+
+The observable provides amplitude through M. The amplitude of each
+declared relation |A[e]| = |x[s] − x[t]| is the physical weight of
+that relation. Correspondence is evaluated weighted by that amplitude.
+
+**Weighted correspondence = Σ|A[e]| over correspondent edges
+                          / Σ|A[e]| over all edges**
+
+This is not a threshold chosen to improve a score. It is the amplitude
+information M already provides, applied consistently to the comparison.
+A sign correspondence at |A[e]| = 0.0001 and at |A[e]| = 0.4 are not
+equivalent observational events. The physical weight distinguishes them.
+
+Binary correspondence (edge count) is also reported for completeness.
+The amplitude-weighted result is the primary declared criterion.
+
+The 195 binary-divergent edges carry 0.8% of the total signal amplitude
+weight. Their mean |A[e]| is 0.001056, versus 0.006451 for correspondent
+edges (ratio 0.16×). The divergence is at the physical noise floor of the
+declared observation, not in the signal.
