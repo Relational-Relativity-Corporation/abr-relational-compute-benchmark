@@ -27,7 +27,12 @@ use std::time::Instant;
 
 /// Execute the full ABR spatial kernel (A→B→R) over the declared input.
 ///
-/// Returns (PathOutput over declared edges, ComputeRecord).
+/// Returns (PathOutput over declared edges, ComputeRecord, rho).
+///
+/// rho[i] is the per-node relational gain declared from the observable
+/// amplitude distribution through χ and χ₀. Returned for use by the
+/// declared inverse operator: given R, rho, and x[0], the original
+/// signal x is exactly recoverable via the banded linear system M_op @ A = R.
 ///
 /// A(x)[e] = x[s] − x[t]  for each declared edge e = (s, t)
 ///
@@ -39,7 +44,7 @@ use std::time::Instant;
 ///
 /// R(g)[e] = g[e] + ρ[src(e)] · (Σ_{succ(e)} B(g) − Σ_{pred(e)} B(g))
 ///   No component pairs declared: cross-topology term does not execute.
-pub fn run_relational_abr(input: &BenchmarkInput) -> (PathOutput, ComputeRecord) {
+pub fn run_relational_abr(input: &BenchmarkInput) -> (PathOutput, ComputeRecord, Vec<f64>) {
     let mut rec = ComputeRecord::new();
     let start = Instant::now();
 
@@ -109,5 +114,5 @@ pub fn run_relational_abr(input: &BenchmarkInput) -> (PathOutput, ComputeRecord)
     rec.wall_clock_us = start.elapsed().as_micros() as u64;
     rec.peak_memory_bytes = ((n + m + n + m + m) * 8) as u64;
 
-    (PathOutput { values: r, n_edges: m }, rec)
+    (PathOutput { values: r, n_edges: m }, rec, rho)
 }

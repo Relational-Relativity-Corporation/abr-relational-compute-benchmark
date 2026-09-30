@@ -31,7 +31,7 @@ pub fn run_experiment(input: &BenchmarkInput) -> ExperimentResult {
         };
     }
 
-    let (rel_output, rel_compute) = relational_path::run_relational_abr(input);
+    let (rel_output, rel_compute, _rho) = relational_path::run_relational_abr(input);
     let rel_correspondence = correspondence::check_correspondence(input, &rel_output);
 
     let (conv_output, conv_compute) = conventional_path::run_conventional(input);

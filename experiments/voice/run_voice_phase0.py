@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+# HISTORICAL REFERENCE ONLY — superseded by experiments/run_voice_phase0.rs (V0.2.0)
+#
+# This file describes the V0.1.0 experiment structure using the Δ→Σ (Primary)
+# kernel and the 0.1s highest-RMS window of Voice_44100_16bit.wav.
+# It is retained for reference only and is not part of the active V0.2.0
+# execution surface. Do not run as a current benchmark.
+#
+# Current experiment: experiments/run_voice_phase0.rs
+# Current declaration: docs/DECLARATION_VOICE.md
 """
 run_voice_phase0.py — abr-relational-compute-benchmark
 Metatron Dynamics, Inc. Kernel V8. Bounded over D. No claim beyond D.
